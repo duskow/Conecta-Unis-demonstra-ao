@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { seedIfNeeded } from './seed.js';
+import { withDemoSession } from './db.js';
 import authRoutes from './routes/auth.js';
 import profileRoutes from './routes/profile.js';
 import opportunityRoutes from './routes/opportunities.js';
@@ -19,6 +20,16 @@ seedIfNeeded();
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+// UUID de alta entropia por aba. Requisições sem ID são recusadas para
+// impedir que um cliente antigo altere o banco compartilhado.
+app.use('/api', (req, res, next) => {
+  if (req.path === '/health') return next();
+  const id = req.get('X-Demo-Session');
+  if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    return res.status(400).json({ message: 'Sessão de demonstração inválida. Atualize a página.' });
+  }
+  withDemoSession(id.toLowerCase(), next);
+});
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'conecta-unis-api' });

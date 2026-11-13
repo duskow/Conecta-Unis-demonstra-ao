@@ -1,11 +1,11 @@
 import jwt from 'jsonwebtoken';
-import { readDb } from './db.js';
+import { readDb, getDemoSessionId } from './db.js';
 import { companyForUser, publicUser } from './utils.js';
 
 export const JWT_SECRET = process.env.JWT_SECRET || 'conecta-unis-dev-secret';
 
 export function createToken(user) {
-  return jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ sub: user.id, role: user.role, demoSession: getDemoSessionId() }, JWT_SECRET, { expiresIn: '7d' });
 }
 
 export function optionalAuth(req, _res, next) {
@@ -14,6 +14,7 @@ export function optionalAuth(req, _res, next) {
   if (token) {
     try {
       const payload = jwt.verify(token, JWT_SECRET);
+      if (!getDemoSessionId() || payload.demoSession !== getDemoSessionId()) throw new Error('Token de outra demonstração');
       const db = readDb();
       const user = db.users.find((u) => u.id === payload.sub);
       if (user && user.status !== 'suspenso') {
@@ -37,6 +38,9 @@ export function authRequired(req, res, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
+    if (!getDemoSessionId() || payload.demoSession !== getDemoSessionId()) {
+      return res.status(401).json({ message: 'Esta sessão pertence a outra demonstração.' });
+    }
     const db = readDb();
     const user = db.users.find((u) => u.id === payload.sub);
     if (!user) {

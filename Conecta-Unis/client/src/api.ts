@@ -1,5 +1,14 @@
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'conecta_unis_token';
+const DEMO_SESSION_KEY = 'conecta_unis_demo_session';
+function demoSessionId(): string {
+  let id = sessionStorage.getItem(DEMO_SESSION_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem(DEMO_SESSION_KEY, id);
+  }
+  return id;
+}
 
 export class ApiError extends Error {
   status: number;
@@ -11,14 +20,15 @@ export class ApiError extends Error {
 }
 
 export const tokenStore = {
-  get: () => localStorage.getItem(TOKEN_KEY),
-  set: (token: string) => localStorage.setItem(TOKEN_KEY, token),
-  clear: () => localStorage.removeItem(TOKEN_KEY)
+  get: () => sessionStorage.getItem(TOKEN_KEY),
+  set: (token: string) => sessionStorage.setItem(TOKEN_KEY, token),
+  clear: () => sessionStorage.removeItem(TOKEN_KEY)
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = tokenStore.get();
   const headers = new Headers(options.headers || {});
+  headers.set('X-Demo-Session', demoSessionId());
   if (token) headers.set('Authorization', `Bearer ${token}`);
   if (options.body && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
